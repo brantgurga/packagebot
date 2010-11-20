@@ -1,6 +1,6 @@
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: nil -*-
 import os
-from optparse import OptionParser
+from argparse import ArgumentParser
 import xml.sax
 
 class MetaDataHandler(xml.sax.ContentHandler):
@@ -73,23 +73,28 @@ class PackageBot(object):
                 xml.sax.parse(path, metadata_handler, metadata_error_handler)
 
 def main():
-    parser = OptionParser(version = '0',
-        description = 'Uses metadata in the portage tree to populate a wiki.',
+    parser = ArgumentParser(description = ('Uses metadata in the portage tree'
+            ' to populate a wiki.'),
         epilog = ('PackageBot gathers metadata from a portage tree and adds'
             ' information to a wiki.'))
-    parser.add_option('-v', '--verbose',
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '0',
+        help = 'print the version of Packagebot and exit')
+    parser.add_argument('-v', '--verbose',
         action = 'store_true',
         dest = 'verbose',
         default = False,
-        help = 'Prints details on what Packagebot is doing')
-    (options, args) = parser.parse_args()
+        help = 'print details on what Packagebot is doing')
+    parser.add_argument('tree',
+        action = 'store',
+        default = '/usr/portage',
+        help = 'specify the location of the portage tree',
+        nargs = '?')
+    options = parser.parse_args()
     if options.verbose:
         print 'Starting in verbose mode'
-    if len(args) > 0:
-        tree = args[0]
-    else:
-        tree = '/usr/portage'
-    tree = os.path.normpath(tree)
+    tree = os.path.normpath(options.tree)
     if options.verbose:
         print 'Using portage tree at %(tree)s' % {'tree': tree}
     bot = PackageBot(options.verbose, tree)
