@@ -1,60 +1,7 @@
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: nil -*-
 import os
+from xml.etree import ElementTree
 from argparse import ArgumentParser
-import xml.sax
-
-class MetaDataHandler(xml.sax.ContentHandler):
-    def __init__(self, verbose):
-        object.__init__(self)
-        self.verbose = verbose
-
-    def startDocument(self):
-        self.type = None
-
-    def startElement(self, name, attrs):
-        if name == 'catmetadata':
-            self.type = 'category'
-        elif name == 'pkgmetadata':
-            self.type = 'package'
-
-    def endElement(self, name):
-        if name == 'catmetadata':
-            self.categories += {}
-
-class MetaDataErrorHandler(xml.sax.ErrorHandler):
-    def __init__(self, verbose):
-        object.__init__(self)
-        self.verbose = verbose
-
-    def error(self, exception):
-        messageargs = {'message': exception.getMessage(),
-            'line': exception.getLineNumber(),
-            'column': exception.getColumnNumber()}
-        if self.verbose:
-            message = '%(line)u, %(column)u: %(message)s' % messageargs
-        else:
-            message = '%(message)s' % messageargs
-        print message
-
-    def fatalError(self, exception):
-        messageargs = {'message': exception.getMessage(),
-            'line': exception.getLineNumber(),
-            'column': exception.getColumnNumber()}
-        if self.verbose:
-            message = '%(line)u, %(column)u: %(message)s' % messageargs
-        else:
-            message = '%(message)s' % messageargs
-        print message
-
-    def warning(self, exception):
-        messageargs = {'message': exception.getMessage(),
-            'line': exception.getLineNumber(),
-            'column': exception.getColumnNumber()}
-        if self.verbose:
-            message = '%(line)u, %(column)u: %(message)s' % messageargs
-        else:
-            message = '' % messageargs
-        print message
 
 class PackageBot(object):
     def __init__(self, verbose, tree):
@@ -63,14 +10,25 @@ class PackageBot(object):
         self.tree = tree
 
     def run(self):
+        name = None
+        category = None
+        metatype = 'unknown'
         for root, dirs, files in os.walk(self.tree):
             if 'metadata.xml' in files:
+                if os.path.dirname(root) == self.tree:
+                    category = os.path.basename(root)
+                    metatype = 'category'
+                else:
+                    metatype = 'ebuild'
+                name = os.path.basename(root)
                 path = os.path.join(root, 'metadata.xml')
                 if self.verbose:
                     print 'Reading %(path)s' % {'path': path}
-                metadata_handler = MetaDataHandler(self.verbose)
-                metadata_error_handler = MetaDataErrorHandler(self.verbose)
-                xml.sax.parse(path, metadata_handler, metadata_error_handler)
+                    print 'Type: %(type)s' % {'type': metatype}
+                    print 'Category: %(category)s' % {'category': category}
+                    print 'Name: %(name)s' % {'name': name}
+                tree = ElementTree.parse(path);
+                
 
 def main():
     parser = ArgumentParser(description = ('Uses metadata in the portage tree'
