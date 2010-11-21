@@ -1,44 +1,10 @@
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: nil -*-
 import os
-import multiprocessing
-import threading
-from Queue import Queue
+import thread
+import time
 from xml.etree import ElementTree
 from argparse import ArgumentParser
 
-class ThreadPoolThread(threading.Thread):
-    def __init__(self, verbose, jobs):
-        threading.Thread.__init__(self)
-        self.jobs = jobs
-        self.daemon = True
-        self.verbose = verbose
-
-    def run(self):
-        if self.verbose:
-            print 'Thread started'
-        while True:
-            func, args, kargs, callback = self.jobs.get()
-            if self.verbose:
-                print 'Thread job running'
-            try:
-                callback(func(*args, **kargs))
-            finally:
-                self.jobs.task_done()
-
-class ThreadPool(object):
-    def __init__(self, size, verbose):
-        object.__init__(self)
-        self.jobs = Queue(size)
-        self.verbose = verbose
-        for _ in range(size):
-            thread = ThreadPoolThread(self.verbose, self.jobs)
-            thread.start()
-
-    def putTask(self, task, args = (), kargs = {}, callback = lambda x: x):
-        self.jobs.put((task, args, kargs, callback))
-
-    def finish(self):
-        self.jobs.join()
 
 class Metadata(object):
     def __init__(self, name, verbose):
@@ -68,21 +34,19 @@ def process_xml(metatype, category, name, path, verbose):
         result = Ebuild(name, category, ElementTree.parse(path), verbose)
     return result
 
-def handle_xml(metadata):
-    if metadata.verbose:
-        print 'Processed xml for %(name)s' % {'name': metadata.name}
-
 class PackageBot(object):
-    def __init__(self, verbose, tree, pool):
+    def __init__(self, verbose, tree, jobs):
         object.__init__(self)
         self.verbose = verbose
         self.tree = tree
-        self.pool = pool
+        self.jobs = jobs
+        self.metadata = []
 
     def run(self):
         name = None
         category = None
         metatype = 'unknown'
+        metadatatuples = []
         for root, dirs, files in os.walk(self.tree):
             if 'metadata.xml' in files:
                 if os.path.dirname(root) == self.tree:
@@ -97,10 +61,34 @@ class PackageBot(object):
                     print 'Type: %(type)s' % {'type': metatype}
                     print 'Category: %(category)s' % {'category': category}
                     print 'Name: %(name)s' % {'name': name}
-                self.pool.putTask(process_xml,
-                    (metatype, category, name, path, self.verbose),
-                    {},
-                    handle_xml)
+                metadatatuples.append((metatype, category, name, path))
+
+        tasks = self.divvy_work(metadatatuples, self.jobs)
+
+        self._result_lock = thread.allocate_lock()
+        self._thread_count = self.jobs
+        for task in tasks:
+            thread.start_new_thread(self.do_work, (task,))
+        while(self._thread_count):
+            time.sleep(.1)
+        print self.metadata[:25]
+
+    def divvy_work(self, work, parts):
+        quotient, remainder = divmod(len(work), parts)
+        indices = [quotient * part + min(part, remainder)
+            for part in xrange(parts + 1)]
+        return [work[indices[part]:indices[part + 1]]
+            for part in xrange(parts)]
+
+    def do_work(self, task):
+        result = []
+        for (metatype, category, name, path) in task:
+            result.append(process_xml(metatype, category, name, path,
+                self.verbose))
+        with self._result_lock:
+            self.metadata.extend(result)
+            self._thread_count -= 1
+
 
 def main():
     parser = ArgumentParser(description = ('Uses metadata in the portage tree'
@@ -120,7 +108,7 @@ def main():
         action = 'store',
         dest = 'jobs',
         type = int,
-        default = multiprocessing.cpu_count(),
+        default = 1,
         help = 'run jobs in parallel',
         nargs = '?')
     parser.add_argument('tree',
@@ -132,13 +120,12 @@ def main():
     if options.verbose:
         print 'Starting in verbose mode'
     tree = os.path.normpath(options.tree)
-    pool = ThreadPool(options.jobs, options.verbose)
+    jobs = options.jobs
     if options.verbose:
         print 'Using portage tree at %(tree)s' % {'tree': tree}
-        print 'Using %(jobs)u jobs' % {'jobs': options.jobs}
-    bot = PackageBot(options.verbose, tree, pool)
+        print 'Using %(jobs)u jobs' % {'jobs': jobs}
+    bot = PackageBot(options.verbose, tree, jobs)
     bot.run()
-    pool.finish()
 
 if __name__ == '__main__':
     main()
