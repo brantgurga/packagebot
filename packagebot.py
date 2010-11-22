@@ -14,6 +14,9 @@ class Metadata(object):
         self.xml = xml
         self.verbose = verbose
 
+    def __str__(self):
+        return 'Metadata: %(name)s' % {'name': self.name}
+
     def __repr__(self):
         xmloutput = StringIO.StringIO()
         self.xml.write(xmloutput)
@@ -31,6 +34,9 @@ class Category(Metadata):
         Metadata.__init__(self, name, xml, verbose)
         if self.verbose:
             print 'Created category %(name)s' % {'name': self.name}
+
+    def __str__(self):
+        return 'Category: %(name)s' % {'name': self.name}
 
     def __repr__(self):
         xmloutput = StringIO.StringIO()
@@ -50,6 +56,10 @@ class Ebuild(Metadata):
         self.category = category
         if self.verbose:
             print 'Created ebuild %(name)s' % {'name': self.name}
+
+    def __str__(self):
+        return ('Ebuild: %(category)s/%(name)s' %
+            {'category': self.category, 'name': self.name})
 
     def __repr__(self):
         xmloutput = StringIO.StringIO()
@@ -110,7 +120,8 @@ class PackageBot(object):
             thread.start_new_thread(self.do_work, (task,))
         while(self._thread_count):
             time.sleep(.1)
-        print self.metadata[:25]
+        for m in self.metadata[:25]:
+            print m
 
     def divvy_work(self, work, parts):
         quotient, remainder = divmod(len(work), parts)
