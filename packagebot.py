@@ -137,6 +137,8 @@ class PackageBot(object):
                         category,
                         ElementTree.parse(path),
                         self.verbose))
+            else:
+                assert False, 'Unhandled metadata type'
         with self._result_lock:
             self.metadata.extend(result)
             self._thread_count -= 1
