@@ -74,15 +74,6 @@ class Ebuild(Metadata):
         xmloutput.close()
         return output
 
-def process_xml(metatype, category, name, path, verbose):
-    if verbose:
-        print 'Processing xml for %(name)s' % {'name': name}
-    if metatype == 'category':
-        result = Category(name, ElementTree.parse(path), verbose)
-    elif metatype == 'ebuild':
-        result = Ebuild(name, category, ElementTree.parse(path), verbose)
-    return result
-
 class PackageBot(object):
     def __init__(self, verbose, tree, jobs):
         object.__init__(self)
@@ -133,8 +124,19 @@ class PackageBot(object):
     def do_work(self, task):
         result = []
         for (metatype, category, name, path) in task:
-            result.append(process_xml(metatype, category, name, path,
-                self.verbose))
+            if self.verbose:
+                print 'Processing xml for %(name)s' % {'name': name}
+            if metatype == 'category':
+                result.append(
+                    Category(name,
+                        ElementTree.parse(path),
+                        self.verbose))
+            elif metatype == 'ebuild':
+                result.append(
+                    Ebuild(name,
+                        category,
+                        ElementTree.parse(path),
+                        self.verbose))
         with self._result_lock:
             self.metadata.extend(result)
             self._thread_count -= 1
