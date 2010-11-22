@@ -2,28 +2,67 @@
 import os
 import thread
 import time
+import StringIO
 from xml.etree import ElementTree
 from argparse import ArgumentParser
 
 
 class Metadata(object):
-    def __init__(self, name, verbose):
+    def __init__(self, name, xml, verbose):
         object.__init__(self)
         self.name = name
+        self.xml = xml
         self.verbose = verbose
+
+    def __repr__(self):
+        xmloutput = StringIO.StringIO()
+        self.xml.write(xmloutput)
+        output = ('Metadata(%(name)s, '
+                'ElementTree.parse(StringIO.StringIO(%(xml)s)), '
+                '%(verbose)s)' %
+            {'name': repr(self.name),
+                'xml': repr(xmloutput.getvalue()),
+                'verbose': repr(self.verbose)})
+        xmloutput.close()
+        return output
 
 class Category(Metadata):
     def __init__(self, name, xml, verbose):
-        Metadata.__init__(self, name, verbose)
+        Metadata.__init__(self, name, xml, verbose)
         if self.verbose:
             print 'Created category %(name)s' % {'name': self.name}
 
+    def __repr__(self):
+        xmloutput = StringIO.StringIO()
+        self.xml.write(xmloutput)
+        output = ('Category(%(name)s, '
+                'ElementTree.parse(StringIO.StringIO(%(xml)s)), '
+                '%(verbose)s)' %
+            {'name': repr(self.name),
+                'xml': repr(xmloutput.getvalue()),
+                'verbose': repr(self.verbose)})
+        xmloutput.close()
+        return output
+
 class Ebuild(Metadata):
     def __init__(self, name, category, xml, verbose):
-        Metadata.__init__(self, name, verbose)
+        Metadata.__init__(self, name, xml, verbose)
+        self.category = category
         if self.verbose:
             print 'Created ebuild %(name)s' % {'name': self.name}
 
+    def __repr__(self):
+        xmloutput = StringIO.StringIO()
+        self.xml.write(xmloutput)
+        output = ('Ebuild(%(name)s, %(category)s, '
+                'ElementTree.parse(StringIO.StringIO(%(xml)s)), '
+                '%(verbose)s)' %
+            {'name': repr(self.name),
+                'category': repr(self.category),
+                'xml': repr(xmloutput.getvalue()),
+                'verbose': repr(self.verbose)})
+        xmloutput.close()
+        return output
 
 def process_xml(metatype, category, name, path, verbose):
     if verbose:
