@@ -63,6 +63,7 @@ class Metadata(object):
         xmloutput.close()
         return output
 
+
 class Category(Metadata):
     """This is a Portage tree category."""
     def __init__(self, name, xml, verbose):
@@ -87,6 +88,7 @@ class Category(Metadata):
                 'verbose': repr(self.verbose)})
         xmloutput.close()
         return output
+
 
 class Ebuild(Metadata):
     """This is a Portage tree ebuild."""
@@ -115,6 +117,7 @@ class Ebuild(Metadata):
                 'verbose': repr(self.verbose)})
         xmloutput.close()
         return output
+
 
 class PackageBot(object):
     """Workhorse of PackageBot that deals with collecting and sending data."""
@@ -191,6 +194,7 @@ class PackageBot(object):
             self.metadata.extend(result)
             self._thread_count -= 1
 
+
 class LoginException(Exception):
     """Exceptional issues logging into MediaWiki."""
     def __init__(self, code):
@@ -205,6 +209,7 @@ class LoginException(Exception):
     def __repr__(self):
         """Creates a string to be used to recreate the LoginException."""
         print 'LoginException(%(code)s)' % {'code': repr(self.code)}
+
 
 class MediaWiki(object):
     """This is the MediaWiki context tracker."""
@@ -224,7 +229,7 @@ class MediaWiki(object):
         if verbose:
             print 'Using endpoint: %(endpoint)s' % {'endpoint': endpoint}
 
-    def login(self, user, password, firstattempt = True):
+    def login(self, user, password, firstattempt=True):
         """Logs in to MediaWiki with a given name and password."""
         params = urllib.urlencode({'action': 'login',
             'lgname': user,
@@ -255,7 +260,6 @@ class MediaWiki(object):
                 print 'Successful login'
         else:
             raise LoginException(decoded['login']['result'])
-        
 
     def logout(self):
         """Logs out from MediaWiki."""
@@ -273,49 +277,49 @@ class MediaWiki(object):
 
 def main():
     """Runs the application."""
-    parser = ArgumentParser(description = ('Uses metadata in the portage tree'
+    parser = ArgumentParser(description=('Uses metadata in the portage tree'
             ' to populate a wiki.'),
-        epilog = ('PackageBot gathers metadata from a portage tree and adds'
+        epilog=('PackageBot gathers metadata from a portage tree and adds'
             ' information to a wiki.'),
         fromfile_prefix_chars='@')
     parser.add_argument('-V', '--version',
-        action = 'version',
-        version = '0',
-        help = 'print the version of Packagebot and exit')
+        action='version',
+        version='0',
+        help='print the version of Packagebot and exit')
     parser.add_argument('-v', '--verbose',
-        action = 'store_true',
-        dest = 'verbose',
-        default = False,
-        help = 'print details on what Packagebot is doing')
+        action='store_true',
+        dest='verbose',
+        default=False,
+        help='print details on what Packagebot is doing')
     parser.add_argument('-j', '--jobs',
-        action = 'store',
-        dest = 'jobs',
-        type = int,
-        default = 1,
-        help = 'run jobs in parallel',
-        nargs = '?')
+        action='store',
+        dest='jobs',
+        type=int,
+        default=1,
+        help='run jobs in parallel',
+        nargs='?')
     parser.add_argument('user',
-        action = 'store',
-        help = 'user for logging into MediaWiki')
+        action='store',
+        help='user for logging into MediaWiki')
     parser.add_argument('password',
-        action = 'store',
-        help = 'password for logging into MediaWiki')
+        action='store',
+        help='password for logging into MediaWiki')
     parser.add_argument('--useragent',
-        action = 'store',
-        dest = 'useragent',
-        default = 'Funtoo/Packagebot',
-        help = 'Specify the useragent for Packagebot to use',
-        nargs = '?')
+        action='store',
+        dest='useragent',
+        default='Funtoo/Packagebot',
+        help='Specify the useragent for Packagebot to use',
+        nargs='?')
     parser.add_argument('tree',
-        action = 'store',
-        default = '/usr/portage',
-        help = 'specify the location of the portage tree',
-        nargs = '?')
+        action='store',
+        default='/usr/portage',
+        help='specify the location of the portage tree',
+        nargs='?')
     parser.add_argument('endpoint',
-        action = 'store',
-        default = 'http://docs.funtoo.org/api.php',
-        help = 'endpoing for MediaWiki API',
-        nargs = '?')
+        action='store',
+        default='http://docs.funtoo.org/api.php',
+        help='endpoing for MediaWiki API',
+        nargs='?')
     options = parser.parse_args()
     if options.verbose:
         print 'Starting in verbose mode'
