@@ -46,6 +46,10 @@ class Metadata(object):
         self.xml = xml
         self.verbose = verbose
 
+    def update(self, wiki):
+        """Forms an interface for metadata"""
+        print 'Unimplemented update for %(name)s' % {'name': self.name}
+
     def __str__(self):
         """Gives a brief string representation of a metadata object."""
         return 'Metadata: %(name)s' % {'name': self.name}
@@ -71,6 +75,15 @@ class Category(Metadata):
         Metadata.__init__(self, name, xml, verbose)
         if self.verbose:
             print 'Created category %(name)s' % {'name': self.name}
+
+    def update(self, wiki):
+        """Updates the wiki content for a category."""
+        result = wiki.query('Category:%(name)s' % {'name': self.name})
+        edittoken = result['query']['pages'].values()[0]['edittoken']
+        if 'missing' in result['query']['pages'].values()[0]:
+            print 'Would create new page for %(name)s' % {'name': self.name}
+        else:
+            print 'Would update page for %(name)s' % {'name': self.name}
 
     def __str__(self):
         """Creates a string describing the category."""
@@ -160,8 +173,8 @@ class PackageBot(object):
             thread.start_new_thread(self.do_work, (task,))
         while(self._thread_count):
             time.sleep(.1)
-        for m in self.metadata[:25]:
-            print m
+        for m in self.metadata:
+            m.update(self.mediawiki)
 
     def divvy_work(self, work, parts):
         """Splits up work for different threads."""
@@ -229,6 +242,31 @@ class MediaWiki(object):
         self.opener.add_handler(urllib2.HTTPSHandler())
         if verbose:
             print 'Using endpoint: %(endpoint)s' % {'endpoint': endpoint}
+
+    def query(self, name):
+        """Retrieves information about a page from the wiki."""
+        params = urllib.urlencode({'action': 'query',
+            'prop': 'info|revisions',
+            'intoken': 'edit',
+            'titles': name,
+            'format': 'json'})
+        if self.verbose:
+            print 'Using parameters: %(params)s' % {'params': params}
+            print 'Using cookies:'
+            for cookie in self.cookies:
+                print ('%(name)s=%(value)s' %
+                    {'name': cookie.name, 'value': cookie.value})
+        request = urllib2.Request(self.endpoint, params,
+            {'User-Agent': self.useragent})
+        result = self.opener.open(request)
+        if self.verbose:
+            print 'Request sent to %(dest)s' % {'dest': result.geturl()}
+            print 'Result metadata: %(metadata)s' % {'metadata': result.info()}
+        content = result.read()
+        if self.verbose:
+            print 'Result: %(result)s' % {'result': content}
+        decoded = json.loads(content)
+        return decoded
 
     def login(self, user, password, firstattempt=True):
         """Logs in to MediaWiki with a given name and password."""
