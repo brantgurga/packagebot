@@ -224,7 +224,8 @@ def main():
     parser = ArgumentParser(description = ('Uses metadata in the portage tree'
             ' to populate a wiki.'),
         epilog = ('PackageBot gathers metadata from a portage tree and adds'
-            ' information to a wiki.'))
+            ' information to a wiki.'),
+        fromfile_prefix_chars='@')
     parser.add_argument('-V', '--version',
         action = 'version',
         version = '0',
