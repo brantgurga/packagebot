@@ -1,4 +1,30 @@
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: nil -*-
+"""Run packagebot against a particular MediaWiki site.
+
+usage: packagebot.py [-h] [-V] [-v] [-j [JOBS]] [--useragent [USERAGENT]]
+                     user password [tree] [endpoint]
+
+Uses metadata in the portage tree to populate a wiki.
+
+positional arguments:
+  user                  user for logging into MediaWiki
+  password              password for logging into MediaWiki
+  tree                  specify the location of the portage tree
+  endpoint              endpoing for MediaWiki API
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -V, --version         print the version of Packagebot and exit
+  -v, --verbose         print details on what Packagebot is doing
+  -j [JOBS], --jobs [JOBS]
+                        run jobs in parallel
+  --useragent [USERAGENT]
+                        Specify the useragent for Packagebot to use
+
+PackageBot gathers metadata from a portage tree and adds information to a
+wiki.
+
+"""
 import os
 import thread
 import time
@@ -12,16 +38,20 @@ from argparse import ArgumentParser
 
 
 class Metadata(object):
+    """Base class for package and ebuild metadata."""
     def __init__(self, name, xml, verbose):
+        """Creates metadata with a name from an ElementTree."""
         object.__init__(self)
         self.name = name
         self.xml = xml
         self.verbose = verbose
 
     def __str__(self):
+        """Gives a brief string representation of a metadata object."""
         return 'Metadata: %(name)s' % {'name': self.name}
 
     def __repr__(self):
+        """Creates a string usable for recreating the metadata."""
         xmloutput = StringIO.StringIO()
         self.xml.write(xmloutput)
         output = ('Metadata(%(name)s, '
@@ -34,15 +64,19 @@ class Metadata(object):
         return output
 
 class Category(Metadata):
+    """This is a Portage tree category."""
     def __init__(self, name, xml, verbose):
+        """Creates a Portage tree category."""
         Metadata.__init__(self, name, xml, verbose)
         if self.verbose:
             print 'Created category %(name)s' % {'name': self.name}
 
     def __str__(self):
+        """Creates a string describing the category."""
         return 'Category: %(name)s' % {'name': self.name}
 
     def __repr__(self):
+        """Creates a string usable to reconstruct the category."""
         xmloutput = StringIO.StringIO()
         self.xml.write(xmloutput)
         output = ('Category(%(name)s, '
@@ -55,17 +89,21 @@ class Category(Metadata):
         return output
 
 class Ebuild(Metadata):
+    """This is a Portage tree ebuild."""
     def __init__(self, name, category, xml, verbose):
+        """Creates the ebuild metadata from an ElementTree."""
         Metadata.__init__(self, name, xml, verbose)
         self.category = category
         if self.verbose:
             print 'Created ebuild %(name)s' % {'name': self.name}
 
     def __str__(self):
+        """Creates a string description of the ebuild."""
         return ('Ebuild: %(category)s/%(name)s' %
             {'category': self.category, 'name': self.name})
 
     def __repr__(self):
+        """Creates a string to recreate the ebuild metadata."""
         xmloutput = StringIO.StringIO()
         self.xml.write(xmloutput)
         output = ('Ebuild(%(name)s, %(category)s, '
@@ -79,7 +117,9 @@ class Ebuild(Metadata):
         return output
 
 class PackageBot(object):
+    """Workhorse of PackageBot that deals with collecting and sending data."""
     def __init__(self, verbose, tree, jobs, mediawiki):
+        """Creates a bot with a particular configuration."""
         object.__init__(self)
         self.verbose = verbose
         self.tree = tree
@@ -88,6 +128,7 @@ class PackageBot(object):
         self.metadata = []
 
     def run(self):
+        """Runs the bot."""
         name = None
         category = None
         metatype = 'unknown'
@@ -120,6 +161,7 @@ class PackageBot(object):
             print m
 
     def divvy_work(self, work, parts):
+        """Splits up work for different threads."""
         quotient, remainder = divmod(len(work), parts)
         indices = [quotient * part + min(part, remainder)
             for part in xrange(parts + 1)]
@@ -127,6 +169,7 @@ class PackageBot(object):
             for part in xrange(parts)]
 
     def do_work(self, task):
+        """Does the work for each thread."""
         result = []
         for (metatype, category, name, path) in task:
             if self.verbose:
@@ -149,18 +192,24 @@ class PackageBot(object):
             self._thread_count -= 1
 
 class LoginException(Exception):
+    """Exceptional issues logging into MediaWiki."""
     def __init__(self, code):
+        """Creates a login exception for a particular login issue code."""
         Exception.__init__(self)
         self.code = code
 
     def __str__(self):
+        """Creates a string to describe the login exception."""
         print 'Login Issue: %(code)s' % {'code': self.code}
 
     def __repr__(self):
+        """Creates a string to be used to recreate the LoginException."""
         print 'LoginException(%(code)s)' % {'code': repr(self.code)}
 
 class MediaWiki(object):
+    """This is the MediaWiki context tracker."""
     def __init__(self, endpoint, useragent, verbose):
+        """Creates the MediaWiki context for a given configuration."""
         object.__init__(self)
         self.endpoint = endpoint
         self.verbose = verbose
@@ -176,6 +225,7 @@ class MediaWiki(object):
             print 'Using endpoint: %(endpoint)s' % {'endpoint': endpoint}
 
     def login(self, user, password, firstattempt = True):
+        """Logs in to MediaWiki with a given name and password."""
         params = urllib.urlencode({'action': 'login',
             'lgname': user,
             'lgpassword': password,
@@ -208,6 +258,7 @@ class MediaWiki(object):
         
 
     def logout(self):
+        """Logs out from MediaWiki."""
         params = urllib.urlencode({'action': 'logout', 'format': 'json'})
         if self.verbose:
             print 'Using parameters: %(params)s' % {'params': params}
@@ -221,6 +272,7 @@ class MediaWiki(object):
 
 
 def main():
+    """Runs the application."""
     parser = ArgumentParser(description = ('Uses metadata in the portage tree'
             ' to populate a wiki.'),
         epilog = ('PackageBot gathers metadata from a portage tree and adds'
