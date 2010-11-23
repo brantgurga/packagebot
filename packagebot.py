@@ -190,6 +190,7 @@ class PackageBot(object):
                         self.verbose))
             else:
                 assert False, 'Unhandled metadata type'
+                thread.interrupt_main()
         with self._result_lock:
             self.metadata.extend(result)
             self._thread_count -= 1
