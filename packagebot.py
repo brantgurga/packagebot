@@ -3,6 +3,10 @@ import os
 import thread
 import time
 import StringIO
+import urllib
+import urllib2
+import cookielib
+import json
 from xml.etree import ElementTree
 from argparse import ArgumentParser
 
@@ -75,11 +79,12 @@ class Ebuild(Metadata):
         return output
 
 class PackageBot(object):
-    def __init__(self, verbose, tree, jobs):
+    def __init__(self, verbose, tree, jobs, mediawiki):
         object.__init__(self)
         self.verbose = verbose
         self.tree = tree
         self.jobs = jobs
+        self.mediawiki = mediawiki
         self.metadata = []
 
     def run(self):
@@ -143,6 +148,77 @@ class PackageBot(object):
             self.metadata.extend(result)
             self._thread_count -= 1
 
+class LoginException(Exception):
+    def __init__(self, code):
+        Exception.__init__(self)
+        self.code = code
+
+    def __str__(self):
+        print 'Login Issue: %(code)s' % {'code': self.code}
+
+    def __repr__(self):
+        print 'LoginException(%(code)s)' % {'code': repr(self.code)}
+
+class MediaWiki(object):
+    def __init__(self, endpoint, useragent, verbose):
+        object.__init__(self)
+        self.endpoint = endpoint
+        self.verbose = verbose
+        self.useragent = useragent
+        self.token = ''
+        self.opener = urllib2.OpenerDirector()
+        self.cookies = cookielib.CookieJar()
+        cookie_handler = urllib2.HTTPCookieProcessor(self.cookies)
+        self.opener.add_handler(cookie_handler)
+        self.opener.add_handler(urllib2.HTTPHandler())
+        self.opener.add_handler(urllib2.HTTPSHandler())
+        if verbose:
+            print 'Using endpoint: %(endpoint)s' % {'endpoint': endpoint}
+
+    def login(self, user, password, firstattempt = True):
+        params = urllib.urlencode({'action': 'login',
+            'lgname': user,
+            'lgpassword': password,
+            'lgtoken': self.token,
+            'format': 'json'})
+        if self.verbose:
+            print 'Using parameters: %(params)s' % {'params': params}
+            print 'Using cookies:'
+            for cookie in self.cookies:
+                print ('%(name)s=%(value)s' %
+                    {'name': cookie.name, 'value': cookie.value})
+        request = urllib2.Request(self.endpoint, params,
+            {'User-Agent': self.useragent})
+        result = self.opener.open(request)
+        if self.verbose:
+            print 'Request sent to %(dest)s' % {'dest': result.geturl()}
+            print 'Result metadata: %(metadata)s' % {'metadata': result.info()}
+        content = result.read()
+        if self.verbose:
+            print 'Result: %(result)s' % {'result': content}
+        decoded = json.loads(content)
+        if 'NeedToken' == decoded['login']['result'] and firstattempt:
+            self.token = decoded['login']['token']
+            self.login(user, password)
+        elif 'Success' == decoded['login']['result']:
+            if self.verbose:
+                print 'Successful login'
+        else:
+            raise LoginException(decoded['login']['result'])
+        
+
+    def logout(self):
+        params = urllib.urlencode({'action': 'logout', 'format': 'json'})
+        if self.verbose:
+            print 'Using parameters: %(params)s' % {'params': params}
+        request = urllib2.Request(self.endpoint, params,
+            {'User-Agent': self.useragent})
+        result = self.opener.open(request)
+        if self.verbose:
+            print 'Request sent to %(dest)s' % {'dest': result.geturl()}
+            print 'Result metadata: %(metadata)s' % {'metadata': result.info()}
+            print 'Result: %(result)s' % {'result': result.read()}
+
 
 def main():
     parser = ArgumentParser(description = ('Uses metadata in the portage tree'
@@ -165,10 +241,27 @@ def main():
         default = 1,
         help = 'run jobs in parallel',
         nargs = '?')
+    parser.add_argument('user',
+        action = 'store',
+        help = 'user for logging into MediaWiki')
+    parser.add_argument('password',
+        action = 'store',
+        help = 'password for logging into MediaWiki')
+    parser.add_argument('--useragent',
+        action = 'store',
+        dest = 'useragent',
+        default = 'Funtoo/Packagebot',
+        help = 'Specify the useragent for Packagebot to use',
+        nargs = '?')
     parser.add_argument('tree',
         action = 'store',
         default = '/usr/portage',
         help = 'specify the location of the portage tree',
+        nargs = '?')
+    parser.add_argument('endpoint',
+        action = 'store',
+        default = 'http://docs.funtoo.org/api.php',
+        help = 'endpoing for MediaWiki API',
         nargs = '?')
     options = parser.parse_args()
     if options.verbose:
@@ -178,8 +271,14 @@ def main():
     if options.verbose:
         print 'Using portage tree at %(tree)s' % {'tree': tree}
         print 'Using %(jobs)u jobs' % {'jobs': jobs}
-    bot = PackageBot(options.verbose, tree, jobs)
-    bot.run()
+    mediawiki = MediaWiki(options.endpoint, options.useragent, options.verbose)
+    try:
+        mediawiki.login(options.user, options.password)
+        bot = PackageBot(options.verbose, tree, jobs, mediawiki)
+        bot.run()
+        mediawiki.logout()
+    except LoginException:
+        print 'There was a failure logging in.'
 
 if __name__ == '__main__':
     main()
