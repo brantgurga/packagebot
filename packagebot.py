@@ -243,7 +243,7 @@ class MediaWiki(object):
         if verbose:
             print 'Using endpoint: %(endpoint)s' % {'endpoint': endpoint}
 
-    def call(self, action, params={}):
+    def call(self, action, **params):
         """Makes the actual Web service call."""
         params.update({'format': 'json', 'action': action})
         apiparams = urllib.urlencode(params)
@@ -267,15 +267,15 @@ class MediaWiki(object):
             
     def query(self, name):
         """Retrieves information about a page from the wiki."""
-        return self.call('query', {'prop': 'info|revisions',
-            'intoken': 'edit',
-            'titles': name})
+        return self.call('query', prop='info|revisions',
+            intoken='edit',
+            titles=name)
 
     def login(self, user, password, firstattempt=True):
         """Logs in to MediaWiki with a given name and password."""
-        decoded = self.call('login', {'lgname': user,
-            'lgpassword': password,
-            'lgtoken': self.token})
+        decoded = self.call('login', lgname=user,
+            lgpassword=password,
+            lgtoken=self.token)
         if 'NeedToken' == decoded['login']['result'] and firstattempt:
             self.token = decoded['login']['token']
             self.login(user, password, False)
