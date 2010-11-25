@@ -34,6 +34,7 @@ import urllib2
 import cookielib
 import hashlib
 import json
+import urlparse
 from xml.etree import ElementTree
 from argparse import ArgumentParser
 
@@ -84,22 +85,39 @@ class Category(Metadata):
         result = wiki.query('Category:%(name)s' % {'name': self.name})
         token = result['query']['pages'].values()[0]['edittoken']
         timestamp = result['query']['pages'].values()[0]['starttimestamp']
+        revision = result['query']['pages'].values()[0]['lastrevid']
+        title = 'Category:%(name)s' % {'name': self.name}
+        basetimestamp = result['query']['pages'].values()[0]['touched']
+        description = ''
+        for desc in self.xml.getiterator('longdescription'):
+            if 'lang' in desc.attrib and desc.attrib['lang'] == 'en':
+                description = desc.text
         if 'missing' in result['query']['pages'].values()[0]:
             if self.verbose:
                 print 'Creating new page for %(name)s' % {'name': self.name}
-            description = ''
-            for desc in self.xml.getiterator('longdescription'):
-                if 'lang' in desc.attrib and desc.attrib['lang'] == 'en':
-                    description = desc.text
             content = (self.template %
                 {'description': description})
-            wiki.create('Category:%(name)s' % {'name': self.name},
+            wiki.create(title,
                 content,
                 token,
                 'Packagebot created the category template content',
                 timestamp)
         else:
-            print 'Would update page for %(name)s' % {'name': self.name}
+            rawcontent = wiki.fetch(title,
+                revision)
+            template = (self.template %
+                {'description': description})
+            start = rawcontent.find('{{PortageCategory')
+            endmarker = '}}'
+            end = rawcontent.find(endmarker) + len(endmarker)
+            newcontent = rawcontent[0:start] + template + rawcontent[end:]
+            if newcontent != rawcontent:
+                wiki.update(title,
+                    newcontent,
+                    token,
+                    'Packagebot updated the category template content',
+                    timestamp,
+                    basetimestamp)
 
     def __str__(self):
         """Creates a string describing the category."""
@@ -247,7 +265,7 @@ class MediaWiki(object):
         """Creates the MediaWiki context for a given configuration."""
         object.__init__(self)
         self.apiendpoint = urlparse.urljoin(endpoint, 'api.php')
-        self.indexpoint = urlparse.urljoin(endpoint, 'index.php')
+        self.indexendpoint = urlparse.urljoin(endpoint, 'index.php')
         self.verbose = verbose
         self.useragent = useragent
         self.token = ''
@@ -282,6 +300,29 @@ class MediaWiki(object):
         decoded = json.loads(content)
         return decoded
 
+    def fetch(self, name, revision):
+        """Fetches the raw page content of a page revision."""
+        params = {'name': name,
+            'oldid': revision,
+            'action': 'raw'}
+        indexparams = urllib.urlencode(params)
+        if self.verbose:
+            print 'Using parameters: %(indexparams)s' % {'indexparams': indexparams}
+            print 'Using cookies:'
+            for cookie in self.cookies:
+                print('%(name)s=%(value)s' %
+                    {'name': cookie.name, 'value': cookie.value})
+        request = urllib2.Request(self.indexendpoint, indexparams,
+            {'User-Agent': self.useragent})
+        result = self.opener.open(request)
+        if self.verbose:
+            print 'Request sent to %(dest)s' % {'dest': result.geturl()}
+            print 'Result metadata: %(metadata)s' % {'metadata': result.info()}
+        content = result.read()
+        if self.verbose:
+            print 'Result: %(result)s' % {'result': content}
+        return content
+
     def create(self, name, content, token, summary, timestamp):
         """Creates a page of content on the wiki."""
         md5 = hashlib.md5(content).hexdigest()
@@ -296,7 +337,20 @@ class MediaWiki(object):
             createonly=True,
             recreate=True,
             md5=md5)
-        pass
+
+    def update(self, name, content, token, summary, timestamp, basetimestamp):
+        """Updates page content on the wiki."""
+        md5 = hashlib.md5(content).hexdigest()
+        self.call('edit',
+            title=name,
+            text=content,
+            token=token,
+            summary=summary,
+            notminor=True,
+            bot=True,
+            basetimestamp=basetimestamp,
+            starttimestamp=timestamp,
+            md5=md5)
             
     def query(self, name):
         """Retrieves information about a page from the wiki."""
