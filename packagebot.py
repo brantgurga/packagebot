@@ -32,6 +32,7 @@ import StringIO
 import urllib
 import urllib2
 import cookielib
+import hashlib
 import json
 from xml.etree import ElementTree
 from argparse import ArgumentParser
@@ -70,6 +71,8 @@ class Metadata(object):
 
 class Category(Metadata):
     """This is a Portage tree category."""
+    template = ('{{PortageCategory|'
+                    'description=<nowiki>%(description)s</nowiki>}}')
     def __init__(self, name, xml, verbose):
         """Creates a Portage tree category."""
         Metadata.__init__(self, name, xml, verbose)
@@ -79,9 +82,22 @@ class Category(Metadata):
     def update(self, wiki):
         """Updates the wiki content for a category."""
         result = wiki.query('Category:%(name)s' % {'name': self.name})
-        edittoken = result['query']['pages'].values()[0]['edittoken']
+        token = result['query']['pages'].values()[0]['edittoken']
+        timestamp = result['query']['pages'].values()[0]['starttimestamp']
         if 'missing' in result['query']['pages'].values()[0]:
-            print 'Would create new page for %(name)s' % {'name': self.name}
+            if self.verbose:
+                print 'Creating new page for %(name)s' % {'name': self.name}
+            description = ''
+            for desc in self.xml.getiterator('longdescription'):
+                if 'lang' in desc.attrib and desc.attrib['lang'] == 'en':
+                    description = desc.text
+            content = (self.template %
+                {'description': description})
+            wiki.create('Category:%(name)s' % {'name': self.name},
+                content,
+                token,
+                'Packagebot created the category template content',
+                timestamp)
         else:
             print 'Would update page for %(name)s' % {'name': self.name}
 
@@ -264,6 +280,22 @@ class MediaWiki(object):
             print 'Result: %(result)s' % {'result': content}
         decoded = json.loads(content)
         return decoded
+
+    def create(self, name, content, token, summary, timestamp):
+        """Creates a page of content on the wiki."""
+        md5 = hashlib.md5(content).hexdigest()
+        self.call('edit',
+            title=name,
+            text=content,
+            token=token,
+            summary=summary,
+            notminor=True,
+            bot=True,
+            starttimestamp=timestamp,
+            createonly=True,
+            recreate=True,
+            md5=md5)
+        pass
             
     def query(self, name):
         """Retrieves information about a page from the wiki."""
