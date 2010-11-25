@@ -246,7 +246,8 @@ class MediaWiki(object):
     def __init__(self, endpoint, useragent, verbose):
         """Creates the MediaWiki context for a given configuration."""
         object.__init__(self)
-        self.endpoint = endpoint
+        self.apiendpoint = urlparse.urljoin(endpoint, 'api.php')
+        self.indexpoint = urlparse.urljoin(endpoint, 'index.php')
         self.verbose = verbose
         self.useragent = useragent
         self.token = ''
@@ -269,7 +270,7 @@ class MediaWiki(object):
             for cookie in self.cookies:
                 print('%(name)s=%(value)s' %
                     {'name': cookie.name, 'value': cookie.value})
-        request = urllib2.Request(self.endpoint, apiparams,
+        request = urllib2.Request(self.apiendpoint, apiparams,
             {'User-Agent': self.useragent})
         result = self.opener.open(request)
         if self.verbose:
@@ -364,7 +365,7 @@ def main():
         nargs='?')
     parser.add_argument('endpoint',
         action='store',
-        default='http://docs.funtoo.org/api.php',
+        default='http://docs.funtoo.org',
         help='endpoing for MediaWiki API',
         nargs='?')
     options = parser.parse_args()
