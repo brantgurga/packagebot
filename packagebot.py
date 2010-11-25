@@ -10,7 +10,7 @@ positional arguments:
   user                  user for logging into MediaWiki
   password              password for logging into MediaWiki
   tree                  specify the location of the portage tree
-  endpoint              endpoing for MediaWiki API
+  endpoint              endpoint for MediaWiki API
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -366,7 +366,7 @@ def main():
     parser.add_argument('endpoint',
         action='store',
         default='http://docs.funtoo.org',
-        help='endpoing for MediaWiki API',
+        help='endpoint for MediaWiki API',
         nargs='?')
     options = parser.parse_args()
     if options.verbose:
