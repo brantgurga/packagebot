@@ -243,20 +243,17 @@ class MediaWiki(object):
         if verbose:
             print 'Using endpoint: %(endpoint)s' % {'endpoint': endpoint}
 
-    def query(self, name):
-        """Retrieves information about a page from the wiki."""
-        params = urllib.urlencode({'action': 'query',
-            'prop': 'info|revisions',
-            'intoken': 'edit',
-            'titles': name,
-            'format': 'json'})
+    def call(self, action, params={}):
+        """Makes the actual Web service call."""
+        params.update({'format': 'json', 'action': action})
+        apiparams = urllib.urlencode(params)
         if self.verbose:
-            print 'Using parameters: %(params)s' % {'params': params}
+            print 'Using parameters: %(apiparams)s' % {'apiparams': apiparams}
             print 'Using cookies:'
             for cookie in self.cookies:
-                print ('%(name)s=%(value)s' %
+                print('%(name)s=%(value)s' %
                     {'name': cookie.name, 'value': cookie.value})
-        request = urllib2.Request(self.endpoint, params,
+        request = urllib2.Request(self.endpoint, apiparams,
             {'User-Agent': self.useragent})
         result = self.opener.open(request)
         if self.verbose:
@@ -267,30 +264,18 @@ class MediaWiki(object):
             print 'Result: %(result)s' % {'result': content}
         decoded = json.loads(content)
         return decoded
+            
+    def query(self, name):
+        """Retrieves information about a page from the wiki."""
+        return self.call('query', {'prop': 'info|revisions',
+            'intoken': 'edit',
+            'titles': name})
 
     def login(self, user, password, firstattempt=True):
         """Logs in to MediaWiki with a given name and password."""
-        params = urllib.urlencode({'action': 'login',
-            'lgname': user,
+        decoded = self.call('login', {'lgname': user,
             'lgpassword': password,
-            'lgtoken': self.token,
-            'format': 'json'})
-        if self.verbose:
-            print 'Using parameters: %(params)s' % {'params': params}
-            print 'Using cookies:'
-            for cookie in self.cookies:
-                print ('%(name)s=%(value)s' %
-                    {'name': cookie.name, 'value': cookie.value})
-        request = urllib2.Request(self.endpoint, params,
-            {'User-Agent': self.useragent})
-        result = self.opener.open(request)
-        if self.verbose:
-            print 'Request sent to %(dest)s' % {'dest': result.geturl()}
-            print 'Result metadata: %(metadata)s' % {'metadata': result.info()}
-        content = result.read()
-        if self.verbose:
-            print 'Result: %(result)s' % {'result': content}
-        decoded = json.loads(content)
+            'lgtoken': self.token})
         if 'NeedToken' == decoded['login']['result'] and firstattempt:
             self.token = decoded['login']['token']
             self.login(user, password)
@@ -302,16 +287,7 @@ class MediaWiki(object):
 
     def logout(self):
         """Logs out from MediaWiki."""
-        params = urllib.urlencode({'action': 'logout', 'format': 'json'})
-        if self.verbose:
-            print 'Using parameters: %(params)s' % {'params': params}
-        request = urllib2.Request(self.endpoint, params,
-            {'User-Agent': self.useragent})
-        result = self.opener.open(request)
-        if self.verbose:
-            print 'Request sent to %(dest)s' % {'dest': result.geturl()}
-            print 'Result metadata: %(metadata)s' % {'metadata': result.info()}
-            print 'Result: %(result)s' % {'result': result.read()}
+        self.call('logout')
 
 
 def main():
