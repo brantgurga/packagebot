@@ -278,7 +278,7 @@ class MediaWiki(object):
             'lgtoken': self.token})
         if 'NeedToken' == decoded['login']['result'] and firstattempt:
             self.token = decoded['login']['token']
-            self.login(user, password)
+            self.login(user, password, False)
         elif 'Success' == decoded['login']['result']:
             if self.verbose:
                 print 'Successful login'
