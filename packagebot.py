@@ -86,8 +86,6 @@ class Category(Metadata):
         result = wiki.query(title)
         token = result['query']['pages'].values()[0]['edittoken']
         timestamp = result['query']['pages'].values()[0]['starttimestamp']
-        revision = result['query']['pages'].values()[0]['lastrevid']
-        basetimestamp = result['query']['pages'].values()[0]['touched']
         description = ''
         for desc in self.xml.getiterator('longdescription'):
             if 'lang' in desc.attrib and desc.attrib['lang'] == 'en':
@@ -103,6 +101,8 @@ class Category(Metadata):
                 'Packagebot created the category template content',
                 timestamp)
         else:
+            basetimestamp = result['query']['pages'].values()[0]['touched']
+            revision = result['query']['pages'].values()[0]['lastrevid']
             rawcontent = wiki.fetch(title,
                 revision)
             template = (self.template %
