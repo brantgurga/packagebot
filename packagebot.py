@@ -139,12 +139,55 @@ class Category(Metadata):
 
 class Ebuild(Metadata):
     """This is a Portage tree ebuild."""
+    template = ('{{PortagePackage|'
+                    'description=<nowiki>%(description)s</nowiki>|'
+                    'category=%(category)s}}')
+
     def __init__(self, name, category, xml, verbose):
         """Creates the ebuild metadata from an ElementTree."""
         Metadata.__init__(self, name, xml, verbose)
         self.category = category
         if self.verbose:
             print 'Created ebuild %(name)s' % {'name': self.name}
+
+    def update(self, wiki):
+        """Updates the wiki content for a package."""
+        title = ('%(category)s/%(name)s' %
+            {'category': self.category, 'name': self.name})
+        result = wiki.query(title)
+        token = result['query']['pages'].values()[0]['edittoken']
+        timestamp = result['query']['pages'].values()[0]['starttimestamp']
+        description = ''
+        for desc in self.xml.getiterator('longdescription'):
+            description = desc.text
+        if 'missing' in result['query']['pages'].values()[0]:
+            if self.verbose:
+                print 'Creating new page for %(name)s' % {'name': self.name}
+            content = (self.template %
+                {'description': description, 'category': self.category})
+            wiki.create(title,
+                content,
+                token,
+                'Packagebot created the package template content',
+                timestamp)
+        else:
+            basetimestamp = result['query']['pages'].values()[0]['touched']
+            revision = result['query']['pages'].values()[0]['lastrevid']
+            rawcontent = wiki.fetch(title,
+                revision)
+            template = (self.template %
+                {'description': description, 'category': self.category})
+            start = rawcontent.find('{{PortagePackage')
+            endmarker = '}}'
+            end = rawcontent.find(endmarker) + len(endmarker)
+            newcontent = rawcontent[0:start] + template + rawcontent[end:]
+            if newcontent != rawcontent:
+                wiki.update(title,
+                    newcontent,
+                    token,
+                    'Packagebot updated the package template content',
+                    timestamp,
+                    basetimestamp)
 
     def __str__(self):
         """Creates a string description of the ebuild."""
