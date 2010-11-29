@@ -318,17 +318,18 @@ class MediaWiki(object):
         if self.verbose:
             print 'Request sent to %(dest)s' % {'dest': result.geturl()}
             print 'Result metadata: %(metadata)s' % {'metadata': result.info()}
-        content = result.read()
+        content = unicode(result.read(), 'utf-8')
         if self.verbose:
-            print 'Result: %(result)s' % {'result': content}
+            print 'Result: %(result)s' % {'result': content.encode('utf-8')}
         return content
 
     def create(self, name, content, token, summary, timestamp):
         """Creates a page of content on the wiki."""
-        md5 = hashlib.md5(content).hexdigest()
+        encoded = content.encode('utf-8')
+        md5 = hashlib.md5(encoded).hexdigest()
         self.call('edit',
             title=name,
-            text=content,
+            text=encoded,
             token=token,
             summary=summary,
             notminor=True,
@@ -340,10 +341,11 @@ class MediaWiki(object):
 
     def update(self, name, content, token, summary, timestamp, basetimestamp):
         """Updates page content on the wiki."""
-        md5 = hashlib.md5(content).hexdigest()
+        encoded = content.encode('utf-8')
+        md5 = hashlib.md5(encoded).hexdigest()
         self.call('edit',
             title=name,
-            text=content,
+            text=encoded,
             token=token,
             summary=summary,
             notminor=True,
