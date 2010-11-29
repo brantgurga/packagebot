@@ -82,11 +82,11 @@ class Category(Metadata):
 
     def update(self, wiki):
         """Updates the wiki content for a category."""
-        result = wiki.query('Category:%(name)s' % {'name': self.name})
+        title = 'Category:%(name)s' % {'name': self.name}
+        result = wiki.query(title)
         token = result['query']['pages'].values()[0]['edittoken']
         timestamp = result['query']['pages'].values()[0]['starttimestamp']
         revision = result['query']['pages'].values()[0]['lastrevid']
-        title = 'Category:%(name)s' % {'name': self.name}
         basetimestamp = result['query']['pages'].values()[0]['touched']
         description = ''
         for desc in self.xml.getiterator('longdescription'):
