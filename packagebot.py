@@ -88,7 +88,9 @@ class Category(Metadata):
         timestamp = result['query']['pages'].values()[0]['starttimestamp']
         description = ''
         for desc in self.xml.getiterator('longdescription'):
-            if 'lang' in desc.attrib and desc.attrib['lang'] == 'en':
+            if ('lang' not in desc.attrib or
+                    desc.attrib['lang'] == 'en' or
+                    desc.attrib['lang'] == 'C'):
                 description = desc.text
         if 'missing' in result['query']['pages'].values()[0]:
             if self.verbose:
@@ -159,7 +161,10 @@ class Ebuild(Metadata):
         timestamp = result['query']['pages'].values()[0]['starttimestamp']
         description = ''
         for desc in self.xml.getiterator('longdescription'):
-            description = desc.text
+            if ('lang' not in desc.attrib or
+                    desc.attrib['lang'] == 'en' or
+                    desc.attrib['lang'] == 'C'):
+                description = desc.text
         if 'missing' in result['query']['pages'].values()[0]:
             if self.verbose:
                 print 'Creating new page for %(name)s' % {'name': self.name}
